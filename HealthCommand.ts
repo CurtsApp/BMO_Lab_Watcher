@@ -83,7 +83,7 @@ export function checkServiceReachability(wasManualRequest: boolean) {
         if (autoRebootWhenUnreachable) {
             alertCurt("Restarting server, see you soon.");
             // restart
-            exec(`systemctl --no-wall --message="Services offline. Restarting." reboot`, (err: any, stdout: any, stderr: any) => {
+            exec(`reboot`, (err: any, stdout: any, stderr: any) => {
                 if (err) {
                     alertCurt("reboot error");
                     alertCurt(err.toString());
