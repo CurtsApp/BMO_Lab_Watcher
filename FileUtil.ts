@@ -28,6 +28,7 @@ export function getCloudflareZone(): string {
 
 interface BotData {
     messagesAllowed: boolean,
+    autoRebootWhenUnreachable: boolean,
     currentIPv6: string
 }
 
@@ -35,6 +36,7 @@ interface BotData {
 const defaultBotData: BotData =
 {
     messagesAllowed: true,
+    autoRebootWhenUnreachable: true,
     currentIPv6: ""
 }
 
@@ -51,12 +53,12 @@ export function getBotData(): BotData {
             // Nothing todo if file read fails, the defaults will get used.
             fileData = null;
         }
-         
-        if (!fileData) {
-            botData = defaultBotData;
-        } else {
-            botData = JSON.parse(fileData) as BotData;
-        }
+        
+        botData = { ...defaultBotData };
+        if (fileData) {
+            // Overwrite default properties, if new fields are added this will fill them with defaults if they are missing from save file
+            botData = {...botData, ...(JSON.parse(fileData) as BotData)};
+        } 
     }
 
     // Spread to create new object

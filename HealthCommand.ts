@@ -17,7 +17,7 @@ export function checkIPv6Validity() {
                 alertCurt(`IPv6 updated to ${ipv6}`);
             }).catch(() => {
                 alertCurt(`Failed to update IPv6 to ${ipv6}.\nRecords may be left in broken state.`);
-            });            
+            });
         } else {
             // No need for alerts all the time, nice for testing though
             //alertCurt("IPv6 unchanged.");
@@ -53,11 +53,80 @@ function getCurrentIPv6() {
             ipv6Addresses?.forEach(address => {
                 // find first address with a global prefix
                 if (validIPv6 === "" && (address.at(0) === '2' || address.at(0) === '3')) {
-                    validIPv6 = address.toString();                
+                    validIPv6 = address.toString();
                 }
             });
 
             resolve(validIPv6 as string)
         })
     });
+}
+
+const services = [
+    "https://plex.curts.app",
+    "https://blog.curts.app",
+    "https://mealie.curts.app",
+]
+
+let autoRebootWhenUnreachable = getBotData().autoRebootWhenUnreachable;
+
+export function checkServiceReachability(wasManualRequest: boolean) {
+    let serviceChecks: Promise<string>[] = [];
+
+    services.forEach(service => serviceChecks.push(isServiceDown(service)));
+    Promise.all(serviceChecks).then(res => {
+        if (wasManualRequest) {
+            alertCurt("All services online.");
+        }
+    }).catch(msg => {
+        alertCurt(msg);
+        if (autoRebootWhenUnreachable) {
+            alertCurt("Restarting server, see you soon.");
+            // restart
+            exec(`systemctl --no-wall --message="Services offline. Restarting." reboot`, (err: any, stdout: any, stderr: any) => {
+                if (err) {
+                    alertCurt("reboot error");
+                    alertCurt(err.toString());
+                    return;
+                }
+
+                if (stderr) {
+                    alertCurt("reboot stderror");
+                    alertCurt(stderr.toString());
+                    return;
+                }
+            })
+        }
+    })
+}
+
+
+export function setAutoRebootOnFailedServiceCheck(allowed: boolean) {
+    // Updated local state
+    autoRebootWhenUnreachable = allowed;
+
+    // Save state for persistance
+    let botData = getBotData();
+    botData.autoRebootWhenUnreachable = allowed;
+    updateBotData(botData);
+}
+
+function isServiceDown(url: string) {
+    let options = {
+        method: 'GET'
+    };
+    return new Promise<string>((resolve, reject) => {
+        fetch(url, options)
+            .then(res => {
+                // Plex has a redirect, so include 300 codes
+                // Plex then returns 401 unauthorized, but that means it's up. So as long as it's not a 500 it's probably online
+                if (res.status >= 200 && res.status < 500) {
+                    resolve(`${url} reachable`);
+                } else {
+                    reject(`${url} unreachable`);
+                }
+            })
+            .catch(err => reject(`${url} unreachable`));
+    })
+
 }

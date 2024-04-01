@@ -1,6 +1,6 @@
 import { alertCurt, setAllowMessage } from "./AlertUtil";
 import { getBMO } from "./BotManager";
-import { checkIPv6Validity } from "./HealthCommand";
+import { checkIPv6Validity, checkServiceReachability, setAutoRebootOnFailedServiceCheck } from "./HealthCommand";
 
 //Create a new bot
 const bot = getBMO();
@@ -29,6 +29,21 @@ const commands: {
       name: "checkIPv6",
       description: "validate IPv6 is correct, update it when it isn't",
       handler: () => checkIPv6Validity()
+    },
+    {
+      name: "allowAutoReboot",
+      description: "allows BMO to reboot the server if the service check fails",
+      handler: () => setAutoRebootOnFailedServiceCheck(true)
+    },
+    {
+      name: "disableAutoReboot",
+      description: "dis-allows BMO from rebooting the server if the service check fails",
+      handler: () => setAutoRebootOnFailedServiceCheck(false)
+    },
+    {
+      name: "checkServicesUp",
+      description: "check that all services are online, reboot if not",
+      handler: () => checkServiceReachability(true)
     }
   ];
 
@@ -59,6 +74,11 @@ alertCurt("BMO Awaiting your command!");
 setInterval(() => {
   checkIPv6Validity();
 }, 1 * 1000 * 60 ); // Operation every minute
+
+// Monitor for service outage
+setInterval(() => {
+  checkServiceReachability(false);
+}, 5 * 1000 * 60 ); // Operation every 5 minutes
 
 // Let me know if something would have crashed
 bot.catch((e) => {
