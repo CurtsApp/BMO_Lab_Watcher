@@ -71,14 +71,18 @@ bot.start();
 alertCurt("BMO Awaiting your command!");
 
 // Monitor for address changes
+let checkCounter = 0;
 setInterval(() => {
-  checkIPv6Validity();
+  if(checkCounter % 5 === 4) {
+    // Operation every 5 minutes
+    // Monitor for service outage
+    checkServiceReachability(false);
+  } else {
+    // Every minute except when checking service availability
+    checkIPv6Validity();
+  }
+  checkCounter = ( checkCounter + 1 ) % 5;
 }, 1 * 1000 * 60 ); // Operation every minute
-
-// Monitor for service outage
-setInterval(() => {
-  checkServiceReachability(false);
-}, 5 * 1000 * 60 ); // Operation every 5 minutes
 
 // Let me know if something would have crashed
 bot.catch((e) => {
