@@ -4,29 +4,36 @@ import { updateDNSRecords } from "./CloudflareUtils";
 import { getBotData, updateBotData } from "./FileUtil";
 import { IS_DEV_MODE } from "./ModeUtils";
 
-export function checkIPv6Validity() {
+export function checkIPValidity(isIPv6: boolean) {
     let botData = getBotData();
 
-    return getCurrentIPv6().then(ipv6 => {
-        // Do nothing when ipv6 is unchanged
-        if (ipv6 !== botData.currentIPv6) {
-            updateDNSRecords(ipv6).then(() => {
-                botData.currentIPv6 = ipv6;
+    return getCurrentIP(isIPv6).then(ip => {
+        const currentIP = isIPv6 ? botData.currentIPv6 : botData.currentIPv4;
+        // Do nothing when ip is unchanged
+        if (ip !== currentIP) {
+            const ipType = isIPv6 ? "IPv6" : "IPv4";
+            updateDNSRecords(ip, isIPv6).then(() => {
+                if(isIPv6) {
+                    botData.currentIPv6 = ip;
+                } else {
+                    botData.currentIPv4 = ip;
+                }
+                
                 updateBotData(botData);
-                alertCurt(`IPv6 updated to ${ipv6}`);
+                alertCurt(`${ipType} updated to ${ip}`);
             }).catch(() => {
-                alertCurt(`Failed to update IPv6 to ${ipv6}.\nRecords may be left in broken state.`);
+                alertCurt(`Failed to update ${ipType} to ${ip}.\nRecords may be left in broken state.`);
             });
         } else {
             // No need for alerts all the time, nice for testing though
             //alertCurt("IPv6 unchanged.");
         }
     });
-
 }
 
 // https://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses (First answer)
 const ipv6RegEx = /(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))/g;
+const ipv4RegEx = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$/g;
 function getAllGlobalIPv6s() {
     return new Promise<string[]>((resolve, reject) => {
         let command = IS_DEV_MODE ? "ipconfig" : "ifconfig";
@@ -61,22 +68,26 @@ function getAllGlobalIPv6s() {
     });
 }
 
-function getCurrentIPv6() {
+function getCurrentIP(isIPv6: boolean) {
     const options = {
         method: 'GET',
         headers: { 'Content-Type': 'application/plain' }
     };
 
     return new Promise<string>((resolve, reject) => {
-        fetch(`https://api6.ipify.org`, options)
+        const address = isIPv6 ? "https://api6.ipify.org" : "https://api.ipify.org";
+        fetch(address, options)
             .then(response => {
                 if (response.ok) {
                     response.text().then(text => {
                         if (text) {
-                            // Validate returned text was an ipv6 address
-                            let ipv6Addresses = text.match(ipv6RegEx);
-                            if (ipv6Addresses?.length === 1) {
+                            let regExMatch = isIPv6 ? ipv6RegEx : ipv4RegEx;
+                             // Validate returned text was an ipv6 address
+                            let ipAddresses = text.match(regExMatch);
+                            if (ipAddresses?.length === 1) {
                                 resolve(text);
+                            } else {
+                                reject();
                             }
                         } else {
                             reject();
@@ -85,7 +96,6 @@ function getCurrentIPv6() {
                 } else {
                     reject();
                 }
-
             })
             .catch(err => reject(err));
     });

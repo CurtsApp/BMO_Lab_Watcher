@@ -7,18 +7,18 @@ interface updateResponse {
     success: boolean;
 }
 
-export function updateDNSRecords(newIPv6: string) {
+export function updateDNSRecords(newIp: string, isIPv6: boolean) {
     // https://developers.cloudflare.com/api/operations/dns-records-for-a-zone-update-dns-record
 
     return new Promise((resolve, reject) => {
-        getAllZoneRecords().then(records => {
+        getAllZoneRecords(isIPv6).then(records => {
             let updateRequests: Promise<void>[] = [];
 
             records.forEach(record => {
                 let url = `https://api.cloudflare.com/client/v4/zones/${zone}/dns_records/${record.id}`;
 
                 let body = {
-                    content: newIPv6,
+                    content: newIp,
                     name: record.name,
                     type: record.type,
                 };
@@ -64,15 +64,15 @@ interface RecordResponse {
     result: DNSRecord[]
 }
 
-export function getAllZoneRecords(): Promise<DNSRecord[]> {
-
+export function getAllZoneRecords(isIPv6: boolean): Promise<DNSRecord[]> {
+    const type = isIPv6 ? "AAAA" : "A";
     const options = {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cloudflareToken}` }
     };
 
     return new Promise<DNSRecord[]>((resolve, reject) => {
-        fetch(`https://api.cloudflare.com/client/v4/zones/${zone}/dns_records?type=AAAA`, options)
+        fetch(`https://api.cloudflare.com/client/v4/zones/${zone}/dns_records?type=${type}`, options)
             .then(response => response.json())
             .then(response => {
                 let res = response as RecordResponse;

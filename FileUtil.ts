@@ -29,6 +29,7 @@ export function getCloudflareZone(): string {
 interface BotData {
     messagesAllowed: boolean,
     autoRebootWhenUnreachable: boolean,
+    currentIPv4: string,
     currentIPv6: string
 }
 
@@ -37,6 +38,7 @@ const defaultBotData: BotData =
 {
     messagesAllowed: true,
     autoRebootWhenUnreachable: true,
+    currentIPv4: "",
     currentIPv6: ""
 }
 
